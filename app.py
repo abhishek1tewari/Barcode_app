@@ -70,7 +70,9 @@ except:
         return render_template('index.html', error='Upload CSV file')
 
     try:
-        df = pd.read_csv(file)
+        df = pd.read_csv(file, encoding='utf-8')
+except:
+    df = pd.read_csv(file, encoding='latin1')
         df.columns = df.columns.str.strip().str.lower()
 
         results = []
