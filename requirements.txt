@@ -1,0 +1,6 @@
+Flask
+gunicorn
+pandas
+python-barcode
+reportlab
+Pillow
