@@ -59,7 +59,10 @@ def normalize_data(row):
 # CSV UPLOAD
 # =========================
 @app.route('/upload_csv', methods=['POST'])
-def upload_csv():
+try:
+    df = pd.read_csv(file, encoding='utf-8')
+except:
+    df = pd.read_csv(file, encoding='latin1')
 
     file = request.files.get('csv_file')
 
