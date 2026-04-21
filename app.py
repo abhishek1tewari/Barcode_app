@@ -1,10 +1,11 @@
-from flask import Flask, render_template, request, url_for, send_from_directory
+from flask import Flask, render_template, request, url_for
 import barcode
 from barcode.writer import ImageWriter
 import os
 import re
 import pandas as pd
 import zipfile
+import uuid
 
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import A4
@@ -16,14 +17,12 @@ os.makedirs(STATIC_FOLDER, exist_ok=True)
 app = Flask(__name__, static_folder=STATIC_FOLDER, static_url_path='/static')
 
 
+# =========================
+# HOME
+# =========================
 @app.route('/')
 def index():
     return render_template('index.html')
-
-
-@app.route('/static/<path:filename>')
-def serve_static(filename):
-    return send_from_directory(STATIC_FOLDER, filename)
 
 
 # =========================
@@ -59,27 +58,26 @@ def normalize_data(row):
 # CSV UPLOAD
 # =========================
 @app.route('/upload_csv', methods=['POST'])
-try:
-    df = pd.read_csv(file, encoding='utf-8')
-except:
-    df = pd.read_csv(file, encoding='latin1')
-
+def upload_csv():
     file = request.files.get('csv_file')
 
     if not file or file.filename == '':
         return render_template('index.html', error='Upload CSV file')
 
     try:
-        df = pd.read_csv(file, encoding='utf-8')
-except:
-    df = pd.read_csv(file, encoding='latin1')
+        # Safe CSV reading
+        try:
+            df = pd.read_csv(file, encoding='utf-8')
+        except:
+            file.seek(0)
+            df = pd.read_csv(file, encoding='latin1')
+
         df.columns = df.columns.str.strip().str.lower()
 
         results = []
         errors = []
 
         for idx, row in df.iterrows():
-
             raw_data = {k: str(v).strip() for k, v in row.items() if pd.notna(v)}
             data = normalize_data(raw_data)
 
@@ -93,7 +91,9 @@ except:
             data['quantity'] = quantity
 
             safe_sku = re.sub(r'[^A-Za-z0-9_-]', '_', sku)
-            filename = f'barcode_{safe_sku}_{idx}.png'
+            unique_id = uuid.uuid4().hex
+
+            filename = f'barcode_{safe_sku}_{unique_id}.png'
             filepath = os.path.join(STATIC_FOLDER, filename)
 
             try:
@@ -118,7 +118,9 @@ except:
         # =========================
         # ZIP FILE
         # =========================
-        zip_path = os.path.join(STATIC_FOLDER, 'barcodes.zip')
+        zip_filename = f'barcodes_{uuid.uuid4().hex}.zip'
+        zip_path = os.path.join(STATIC_FOLDER, zip_filename)
+
         with zipfile.ZipFile(zip_path, 'w') as zipf:
             for r in results:
                 full = os.path.join(STATIC_FOLDER, r['barcode_path'])
@@ -126,9 +128,10 @@ except:
                     zipf.write(full, r['barcode_path'])
 
         # =========================
-        # PDF (12 LABELS PER PAGE)
+        # PDF FILE
         # =========================
-        pdf_path = os.path.join(STATIC_FOLDER, 'labels_12_per_page.pdf')
+        pdf_filename = f'labels_{uuid.uuid4().hex}.pdf'
+        pdf_path = os.path.join(STATIC_FOLDER, pdf_filename)
 
         c = canvas.Canvas(pdf_path, pagesize=A4)
         width, height = A4
@@ -140,7 +143,6 @@ except:
         label_height = height / rows
 
         for item in results:
-
             barcode_path = os.path.join(STATIC_FOLDER, item['barcode_path'])
 
             if not os.path.exists(barcode_path):
@@ -149,7 +151,6 @@ except:
             data = item['data']
 
             for i in range(12):
-
                 col = i % cols
                 row = i // cols
 
@@ -181,7 +182,7 @@ except:
                 draw("Manufacturer", data.get('manufacturer'))
                 draw("Customer Care", data.get('customer_care'))
 
-                # Barcode Image
+                # Barcode image
                 c.drawImage(
                     barcode_path,
                     x + 10,
@@ -198,8 +199,8 @@ except:
             'index.html',
             bulk_results=results,
             row_errors=errors,
-            pdf_path=url_for('static', filename='labels_12_per_page.pdf'),
-            zip_path=url_for('static', filename='barcodes.zip')
+            pdf_path=url_for('static', filename=pdf_filename),
+            zip_path=url_for('static', filename=zip_filename)
         )
 
     except Exception as e:
@@ -211,7 +212,6 @@ except:
 # =========================
 @app.route('/generate', methods=['POST'])
 def generate():
-
     data = request.form.to_dict()
     data = normalize_data(data)
 
@@ -224,7 +224,9 @@ def generate():
     data['quantity'] = quantity
 
     safe_sku = re.sub(r'[^A-Za-z0-9_-]', '_', sku)
-    filename = f'barcode_{safe_sku}.png'
+    unique_id = uuid.uuid4().hex
+
+    filename = f'barcode_{safe_sku}_{unique_id}.png'
     filepath = os.path.join(STATIC_FOLDER, filename)
 
     code = barcode.get('code128', sku, writer=ImageWriter())
@@ -240,5 +242,8 @@ def generate():
     )
 
 
+# =========================
+# MAIN
+# =========================
 if __name__ == '__main__':
     app.run(debug=True)
