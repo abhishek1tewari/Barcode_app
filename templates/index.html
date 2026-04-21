@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Barcode Generator</title>
+
+<style>
+body {
+    margin: 0;
+    font-family: Arial;
+    background: #f3f4f6;
+    display: flex;
+    justify-content: center;
+    padding: 20px;
+}
+.card {
+    width: 100%;
+    max-width: 1000px;
+    background: white;
+    border-radius: 14px;
+    padding: 30px;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.1);
+}
+h1 { text-align:center; }
+
+input {
+    padding:10px;
+    border:1px solid #ccc;
+    border-radius:8px;
+    width:100%;
+}
+
+button {
+    padding:12px;
+    background:#2563eb;
+    color:white;
+    border:none;
+    border-radius:8px;
+    cursor:pointer;
+}
+.print-btn { background:#dc2626; }
+
+.grid {
+    display:grid;
+    grid-template-columns:repeat(2,1fr);
+    gap:10px;
+}
+
+.label-card {
+    border:1px solid #ddd;
+    padding:15px;
+    margin-top:20px;
+    display:flex;
+    justify-content:space-between;
+}
+
+.barcode-box img { width:200px; }
+
+.print-sheet {
+    display:grid;
+    grid-template-columns:repeat(2,1fr);
+    gap:10px;
+    margin-top:20px;
+}
+
+.print-label {
+    border:1px solid black;
+    padding:8px;
+    font-size:10px;
+}
+</style>
+
+<style media="print">
+body * { visibility:hidden; }
+.print-sheet, .print-sheet * { visibility:visible; }
+.print-sheet {
+    position:absolute;
+    top:0;
+    left:0;
+}
+</style>
+</head>
+
+<body>
+<div class="card">
+
+<h1>Barcode Generator</h1>
+
+{% if error %}
+<p style="color:red;">{{ error }}</p>
+{% endif %}
+
+<!-- SINGLE FORM -->
+<form method="POST" action="/generate">
+<div class="grid">
+<input type="text" name="brand_name" placeholder="Brand">
+<input type="text" name="product_name" placeholder="Product">
+<input type="text" name="sku" placeholder="SKU" required>
+<input type="text" name="size" placeholder="Size">
+<input type="text" name="gender" placeholder="Gender">
+
+<!-- FLEXIBLE -->
+<input type="text" name="quantity" placeholder="Quantity (e.g. 10 / x5 / 5pcs)">
+
+<input type="text" name="mrp" placeholder="MRP">
+<input type="text" name="manufacture_month_year" placeholder="Mfg Date">
+<input type="text" name="manufactured_by" placeholder="Manufacturer">
+<input type="text" name="customer_care" placeholder="Customer Care">
+</div>
+
+<button type="submit">Generate</button>
+</form>
+
+<hr>
+
+<!-- CSV -->
+<form method="POST" action="/upload_csv" enctype="multipart/form-data">
+<input type="file" name="csv_file" required>
+<button type="submit">Upload CSV</button>
+</form>
+
+<!-- BULK RESULTS -->
+{% if bulk_results %}
+<h2>Bulk Preview</h2>
+
+{% for item in bulk_results %}
+<div class="label-card">
+    <div>
+        <p><b>{{ item.data.brand_name or item.data.brand }}</b></p>
+        <p>{{ item.data.product_name or item.data.product }}</p>
+
+        <p>SKU: {{ item.data.sku }}</p>
+        <p>Size: {{ item.data.size }}</p>
+        <p>Gender: {{ item.data.gender }}</p>
+        <p>Qty: {{ item.quantity }}</p>
+
+        <p>MRP: {{ item.data.mrp }}</p>
+        <p>Mfg: {{ item.data.manufacture_month_year or item.data['mfg date'] }}</p>
+
+        <p>Manufacturer: {{ item.data.manufactured_by or item.data.manufacturer }}</p>
+        <p>Customer Care: {{ item.data.customer_care }}</p>
+    </div>
+
+    <div class="barcode-box">
+        <img src="{{ url_for('static', filename=item.barcode_path) }}">
+        <div>{{ item.numeric_sku }}</div>
+    </div>
+</div>
+{% endfor %}
+
+<!-- DOWNLOAD -->
+<div style="margin-top:20px;">
+    {% if pdf_path %}
+    <a href="{{ pdf_path }}" target="_blank">
+        <button>Download PDF</button>
+    </a>
+    {% endif %}
+
+    {% if zip_path %}
+    <a href="{{ zip_path }}">
+        <button>Download ZIP</button>
+    </a>
+    {% endif %}
+</div>
+
+<button onclick="window.print()" class="print-btn">Print Bulk</button>
+
+<!-- PRINT SHEET BULK -->
+<div class="print-sheet">
+{% for item in bulk_results %}
+    {% for i in range(item.quantity) %}
+    <div class="print-label">
+
+        <div><b>{{ item.data.brand_name or item.data.brand }}</b></div>
+        <div>{{ item.data.product_name or item.data.product }}</div>
+
+        <div>SKU: {{ item.data.sku }}</div>
+        <div>Size: {{ item.data.size }}</div>
+        <div>Gender: {{ item.data.gender }}</div>
+        <div>Qty: {{ item.quantity }}</div>
+
+        <div>MRP: {{ item.data.mrp }}</div>
+        <div>Mfg: {{ item.data.manufacture_month_year or item.data['mfg date'] }}</div>
+
+        <div>Manufacturer: {{ item.data.manufactured_by or item.data.manufacturer }}</div>
+        <div>Customer Care: {{ item.data.customer_care }}</div>
+
+        <img src="{{ url_for('static', filename=item.barcode_path) }}" width="100%">
+        <div>{{ item.numeric_sku }}</div>
+
+    </div>
+    {% endfor %}
+{% endfor %}
+</div>
+
+{% endif %}
+
+<!-- SINGLE RESULT -->
+{% if barcode_path %}
+<h2>Single Barcode</h2>
+
+<div class="label-card">
+    <div>
+        <p><b>{{ data.brand_name }}</b></p>
+        <p>{{ data.product_name }}</p>
+
+        <p>SKU: {{ data.sku }}</p>
+        <p>Size: {{ data.size }}</p>
+        <p>Gender: {{ data.gender }}</p>
+        <p>Qty: {{ data.quantity }}</p>
+
+        <p>MRP: {{ data.mrp }}</p>
+        <p>Mfg: {{ data.manufacture_month_year }}</p>
+
+        <p>Manufacturer: {{ data.manufactured_by }}</p>
+        <p>Customer Care: {{ data.customer_care }}</p>
+    </div>
+
+    <div class="barcode-box">
+        <img src="{{ barcode_path }}">
+        <div>{{ numeric_sku }}</div>
+    </div>
+</div>
+
+<button onclick="window.print()" class="print-btn">Print</button>
+
+<!-- PRINT SHEET SINGLE -->
+<div class="print-sheet">
+{% for i in range(copies) %}
+<div class="print-label">
+
+    <div><b>{{ data.brand_name }}</b></div>
+    <div>{{ data.product_name }}</div>
+
+    <div>SKU: {{ data.sku }}</div>
+    <div>Size: {{ data.size }}</div>
+    <div>Gender: {{ data.gender }}</div>
+    <div>Qty: {{ data.quantity }}</div>
+
+    <div>MRP: {{ data.mrp }}</div>
+    <div>Mfg: {{ data.manufacture_month_year }}</div>
+
+    <div>Manufacturer: {{ data.manufactured_by }}</div>
+    <div>Customer Care: {{ data.customer_care }}</div>
+
+    <img src="{{ barcode_path }}" width="100%">
+    <div>{{ numeric_sku }}</div>
+
+</div>
+{% endfor %}
+</div>
+
+{% endif %}
+
+</div>
+</body>
+</html>
