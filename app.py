@@ -45,9 +45,7 @@ def normalize_data(row):
         "sku": row.get('sku no.') or row.get('sku') or row.get('sku_number'),
         "size": row.get('size'),
         "mrp": row.get('mrp'),
-        "mfg_date": row.get('manufacture_month_year') or row.get('mfg date'),
-        "manufacturer": row.get('manufactured_by') or row.get('manufacturer'),
-        "customer_care": row.get('customer_care')
+        "manufacturer": row.get('manufactured_by') or row.get('manufacturer')
     }
 
 
@@ -145,7 +143,6 @@ def upload_csv():
         for item in results:
 
             barcode_path = os.path.join(STATIC_FOLDER, item['barcode_path'])
-
             if not os.path.exists(barcode_path):
                 continue
 
@@ -161,32 +158,48 @@ def upload_csv():
 
                 c.rect(x + 5, y + 5, label_width - 10, label_height - 10)
 
-                text_x = x + 10
-                text_y = y + label_height - 15
+                left_x = x + 10
+                right_x = x + label_width / 2
+
+                text_y_left = y + label_height - 15
+                text_y_right = y + label_height - 15
 
                 c.setFont("Helvetica", 7)
 
-                # ✅ ALWAYS PRINT ALL FIELDS
-                def draw(label, value):
-                    nonlocal text_y
-                    display_value = value if value else "-"
-                    c.drawString(text_x, text_y, f"{label}: {display_value}")
-                    text_y -= 9
+                # LEFT SIDE
+                last_y_left = text_y_left
+                def draw_left(label, value):
+                    nonlocal text_y_left, last_y_left
+                    val = value if value else "-"
+                    c.drawString(left_x, text_y_left, f"{label}: {val}")
+                    last_y_left = text_y_left
+                    text_y_left -= 10
 
-                draw("Brand", data.get('brand'))
-                draw("Product", data.get('product'))
-                draw("SKU", data.get('sku'))
-                draw("Size", data.get('size'))
-                draw("MRP", data.get('mrp'))
-                draw("Mfg", data.get('mfg_date'))
-                draw("Manufacturer", data.get('manufacturer'))
-                draw("Customer Care", data.get('customer_care'))
+                draw_left("Brand", data.get('brand'))
+                draw_left("Product", data.get('product'))
+                draw_left("SKU", data.get('sku'))
 
-                # ✅ DYNAMIC BARCODE (NO OVERLAP)
-                barcode_top = text_y - 5
+                # RIGHT SIDE
+                last_y_right = text_y_right
+                def draw_right(label, value):
+                    nonlocal text_y_right, last_y_right
+                    val = value if value else "-"
+                    c.drawString(right_x, text_y_right, f"{label}: {val}")
+                    last_y_right = text_y_right
+                    text_y_right -= 10
+
+                draw_right("Size", data.get('size'))
+                draw_right("MRP", data.get('mrp'))
+                draw_right("Manufacturer", data.get('manufacturer'))
+
+                # FINAL TEXT BOTTOM
+                last_text_y = min(last_y_left, last_y_right)
+
+                # BARCODE FULL WIDTH BELOW TEXT
+                barcode_top = last_text_y - 1
                 barcode_bottom = y + 10
-                barcode_height = barcode_top - barcode_bottom
 
+                barcode_height = barcode_top - barcode_bottom
                 if barcode_height < 20:
                     barcode_height = 20
 
