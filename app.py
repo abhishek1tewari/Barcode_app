@@ -10,7 +10,6 @@ from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
 
-# ✅ ENCODING FIX FOR RENDER
 import sys
 import io
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
@@ -60,7 +59,6 @@ def upload_csv():
 
     file = request.files.get('csv_file')
 
-    # GAP INPUTS
     try:
         top_gap = float(request.form.get('top_gap')) * mm if request.form.get('top_gap') else 10 * mm
     except:
@@ -75,7 +73,6 @@ def upload_csv():
         return render_template('index.html', error='Upload CSV file')
 
     try:
-        # ✅ SAFE CSV READ (works on all pandas versions)
         try:
             df = pd.read_csv(file, encoding='utf-8-sig')
         except:
@@ -119,9 +116,7 @@ def upload_csv():
         if not results:
             return render_template('index.html', error='No valid rows', row_errors=errors)
 
-        # =========================
-        # ZIP FILE
-        # =========================
+        # ZIP
         zip_path = os.path.join(STATIC_FOLDER, 'barcodes.zip')
         with zipfile.ZipFile(zip_path, 'w') as zipf:
             for r in results:
@@ -129,9 +124,7 @@ def upload_csv():
                 if os.path.exists(full):
                     zipf.write(full, r['barcode_path'])
 
-        # =========================
         # PDF
-        # =========================
         pdf_path = os.path.join(STATIC_FOLDER, 'labels_12_per_page.pdf')
 
         c = canvas.Canvas(pdf_path, pagesize=A4)
@@ -173,11 +166,12 @@ def upload_csv():
 
                 c.setFont("Helvetica", 7)
 
+                # ✅ ALWAYS PRINT ALL FIELDS
                 def draw(label, value):
                     nonlocal text_y
-                    if value:
-                        c.drawString(text_x, text_y, f"{label}: {value}")
-                        text_y -= 9
+                    display_value = value if value else "-"
+                    c.drawString(text_x, text_y, f"{label}: {display_value}")
+                    text_y -= 9
 
                 draw("Brand", data.get('brand'))
                 draw("Product", data.get('product'))
@@ -188,12 +182,20 @@ def upload_csv():
                 draw("Manufacturer", data.get('manufacturer'))
                 draw("Customer Care", data.get('customer_care'))
 
+                # ✅ DYNAMIC BARCODE (NO OVERLAP)
+                barcode_top = text_y - 5
+                barcode_bottom = y + 10
+                barcode_height = barcode_top - barcode_bottom
+
+                if barcode_height < 20:
+                    barcode_height = 20
+
                 c.drawImage(
                     barcode_path,
                     x + 10,
-                    y + 10,
+                    barcode_bottom,
                     width=label_width - 20,
-                    height=60
+                    height=barcode_height
                 )
 
             c.showPage()
