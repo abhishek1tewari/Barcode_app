@@ -41,9 +41,9 @@ button {
 }
 
 /* BUTTON COLORS */
-.pdf-btn { background:#dc2626; }     /* red */
-.zip-btn { background:#2563eb; }     /* blue */
-.print-btn { background:#6b8e23; }   /* green-beige */
+.pdf-btn { background:#dc2626; }
+.zip-btn { background:#2563eb; }
+.print-btn { background:#6b8e23; }
 .generate-btn { background:#2563eb; }
 
 .grid {
@@ -60,7 +60,6 @@ button {
     justify-content:space-between;
 }
 
-/* BIGGER BARCODE */
 .barcode-box img { width:260px; }
 
 .print-sheet {
@@ -76,7 +75,6 @@ button {
     font-size:10px;
 }
 
-/* BIGGER PRINT BARCODE */
 .print-label img {
     width:100%;
     height:70px;
@@ -124,6 +122,15 @@ body * { visibility:hidden; }
 
 <!-- CSV -->
 <form method="POST" action="/upload_csv" enctype="multipart/form-data">
+
+<!-- ✅ NEW GAP INPUTS -->
+<div class="grid">
+<input type="text" name="top_gap" placeholder="Top Gap (mm)">
+<input type="text" name="bottom_gap" placeholder="Bottom Gap (mm)">
+</div>
+
+<br>
+
 <input type="file" name="csv_file" required>
 <button type="submit" class="generate-btn">Upload CSV</button>
 </form>
