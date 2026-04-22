@@ -31,15 +31,20 @@ input {
     width:100%;
 }
 
+/* BUTTON BASE */
 button {
     padding:12px;
-    background:#2563eb;
-    color:white;
     border:none;
     border-radius:8px;
     cursor:pointer;
+    color:white;
 }
-.print-btn { background:#dc2626; }
+
+/* BUTTON COLORS */
+.pdf-btn { background:#dc2626; }     /* red */
+.zip-btn { background:#2563eb; }     /* blue */
+.print-btn { background:#6b8e23; }   /* green-beige */
+.generate-btn { background:#2563eb; }
 
 .grid {
     display:grid;
@@ -55,7 +60,8 @@ button {
     justify-content:space-between;
 }
 
-.barcode-box img { width:200px; }
+/* BIGGER BARCODE */
+.barcode-box img { width:260px; }
 
 .print-sheet {
     display:grid;
@@ -68,6 +74,13 @@ button {
     border:1px solid black;
     padding:8px;
     font-size:10px;
+}
+
+/* BIGGER PRINT BARCODE */
+.print-label img {
+    width:100%;
+    height:70px;
+    object-fit:contain;
 }
 </style>
 
@@ -98,18 +111,13 @@ body * { visibility:hidden; }
 <input type="text" name="product_name" placeholder="Product">
 <input type="text" name="sku" placeholder="SKU" required>
 <input type="text" name="size" placeholder="Size">
-<input type="text" name="gender" placeholder="Gender">
-
-<!-- FLEXIBLE -->
-<input type="text" name="quantity" placeholder="Quantity (e.g. 10 / x5 / 5pcs)">
-
 <input type="text" name="mrp" placeholder="MRP">
 <input type="text" name="manufacture_month_year" placeholder="Mfg Date">
 <input type="text" name="manufactured_by" placeholder="Manufacturer">
 <input type="text" name="customer_care" placeholder="Customer Care">
 </div>
 
-<button type="submit">Generate</button>
+<button type="submit" class="generate-btn">Generate</button>
 </form>
 
 <hr>
@@ -117,7 +125,7 @@ body * { visibility:hidden; }
 <!-- CSV -->
 <form method="POST" action="/upload_csv" enctype="multipart/form-data">
 <input type="file" name="csv_file" required>
-<button type="submit">Upload CSV</button>
+<button type="submit" class="generate-btn">Upload CSV</button>
 </form>
 
 <!-- BULK RESULTS -->
@@ -127,18 +135,16 @@ body * { visibility:hidden; }
 {% for item in bulk_results %}
 <div class="label-card">
     <div>
-        <p><b>{{ item.data.brand_name or item.data.brand }}</b></p>
-        <p>{{ item.data.product_name or item.data.product }}</p>
+        <p><b>{{ item.data.brand }}</b></p>
+        <p>{{ item.data.product }}</p>
 
         <p>SKU: {{ item.data.sku }}</p>
         <p>Size: {{ item.data.size }}</p>
-        <p>Gender: {{ item.data.gender }}</p>
-        <p>Qty: {{ item.quantity }}</p>
 
         <p>MRP: {{ item.data.mrp }}</p>
-        <p>Mfg: {{ item.data.manufacture_month_year or item.data['mfg date'] }}</p>
+        <p>Mfg: {{ item.data.mfg_date }}</p>
 
-        <p>Manufacturer: {{ item.data.manufactured_by or item.data.manufacturer }}</p>
+        <p>Manufacturer: {{ item.data.manufacturer }}</p>
         <p>Customer Care: {{ item.data.customer_care }}</p>
     </div>
 
@@ -153,13 +159,13 @@ body * { visibility:hidden; }
 <div style="margin-top:20px;">
     {% if pdf_path %}
     <a href="{{ pdf_path }}" target="_blank">
-        <button>Download PDF</button>
+        <button class="pdf-btn">Download PDF</button>
     </a>
     {% endif %}
 
     {% if zip_path %}
     <a href="{{ zip_path }}">
-        <button>Download ZIP</button>
+        <button class="zip-btn">Download ZIP</button>
     </a>
     {% endif %}
 </div>
@@ -169,28 +175,24 @@ body * { visibility:hidden; }
 <!-- PRINT SHEET BULK -->
 <div class="print-sheet">
 {% for item in bulk_results %}
-    {% for i in range(item.quantity) %}
-    <div class="print-label">
+<div class="print-label">
 
-        <div><b>{{ item.data.brand_name or item.data.brand }}</b></div>
-        <div>{{ item.data.product_name or item.data.product }}</div>
+    <div><b>{{ item.data.brand }}</b></div>
+    <div>{{ item.data.product }}</div>
 
-        <div>SKU: {{ item.data.sku }}</div>
-        <div>Size: {{ item.data.size }}</div>
-        <div>Gender: {{ item.data.gender }}</div>
-        <div>Qty: {{ item.quantity }}</div>
+    <div>SKU: {{ item.data.sku }}</div>
+    <div>Size: {{ item.data.size }}</div>
 
-        <div>MRP: {{ item.data.mrp }}</div>
-        <div>Mfg: {{ item.data.manufacture_month_year or item.data['mfg date'] }}</div>
+    <div>MRP: {{ item.data.mrp }}</div>
+    <div>Mfg: {{ item.data.mfg_date }}</div>
 
-        <div>Manufacturer: {{ item.data.manufactured_by or item.data.manufacturer }}</div>
-        <div>Customer Care: {{ item.data.customer_care }}</div>
+    <div>Manufacturer: {{ item.data.manufacturer }}</div>
+    <div>Customer Care: {{ item.data.customer_care }}</div>
 
-        <img src="{{ url_for('static', filename=item.barcode_path) }}" width="100%">
-        <div>{{ item.numeric_sku }}</div>
+    <img src="{{ url_for('static', filename=item.barcode_path) }}">
+    <div>{{ item.numeric_sku }}</div>
 
-    </div>
-    {% endfor %}
+</div>
 {% endfor %}
 </div>
 
@@ -202,18 +204,16 @@ body * { visibility:hidden; }
 
 <div class="label-card">
     <div>
-        <p><b>{{ data.brand_name }}</b></p>
-        <p>{{ data.product_name }}</p>
+        <p><b>{{ data.brand }}</b></p>
+        <p>{{ data.product }}</p>
 
         <p>SKU: {{ data.sku }}</p>
         <p>Size: {{ data.size }}</p>
-        <p>Gender: {{ data.gender }}</p>
-        <p>Qty: {{ data.quantity }}</p>
 
         <p>MRP: {{ data.mrp }}</p>
-        <p>Mfg: {{ data.manufacture_month_year }}</p>
+        <p>Mfg: {{ data.mfg_date }}</p>
 
-        <p>Manufacturer: {{ data.manufactured_by }}</p>
+        <p>Manufacturer: {{ data.manufacturer }}</p>
         <p>Customer Care: {{ data.customer_care }}</p>
     </div>
 
@@ -227,28 +227,24 @@ body * { visibility:hidden; }
 
 <!-- PRINT SHEET SINGLE -->
 <div class="print-sheet">
-{% for i in range(copies) %}
 <div class="print-label">
 
-    <div><b>{{ data.brand_name }}</b></div>
-    <div>{{ data.product_name }}</div>
+    <div><b>{{ data.brand }}</b></div>
+    <div>{{ data.product }}</div>
 
     <div>SKU: {{ data.sku }}</div>
     <div>Size: {{ data.size }}</div>
-    <div>Gender: {{ data.gender }}</div>
-    <div>Qty: {{ data.quantity }}</div>
 
     <div>MRP: {{ data.mrp }}</div>
-    <div>Mfg: {{ data.manufacture_month_year }}</div>
+    <div>Mfg: {{ data.mfg_date }}</div>
 
-    <div>Manufacturer: {{ data.manufactured_by }}</div>
+    <div>Manufacturer: {{ data.manufacturer }}</div>
     <div>Customer Care: {{ data.customer_care }}</div>
 
-    <img src="{{ barcode_path }}" width="100%">
+    <img src="{{ barcode_path }}">
     <div>{{ numeric_sku }}</div>
 
 </div>
-{% endfor %}
 </div>
 
 {% endif %}
