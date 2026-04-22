@@ -1,11 +1,11 @@
-from flask import Flask, render_template, request, url_for
+from flask import Flask, render_template, request, url_for, send_from_directory
 import barcode
 from barcode.writer import ImageWriter
 import os
 import re
 import pandas as pd
 import zipfile
-import uuid
+import tempfile
 
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import A4
@@ -17,24 +17,19 @@ os.makedirs(STATIC_FOLDER, exist_ok=True)
 app = Flask(__name__, static_folder=STATIC_FOLDER, static_url_path='/static')
 
 
-# =========================
-# HOME
-# =========================
 @app.route('/')
 def index():
     return render_template('index.html')
 
 
+@app.route('/static/<path:filename>')
+def serve_static(filename):
+    return send_from_directory(STATIC_FOLDER, filename)
+
+
 # =========================
 # HELPERS
 # =========================
-def extract_quantity(value):
-    if not value:
-        return 1
-    match = re.search(r'\d+', str(value))
-    return int(match.group()) if match else 1
-
-
 def numeric_only(text):
     return re.sub(r'\D', '', text)
 
@@ -45,8 +40,6 @@ def normalize_data(row):
         "product": row.get('product_name') or row.get('product'),
         "sku": row.get('sku no.') or row.get('sku') or row.get('sku_number'),
         "size": row.get('size'),
-        "gender": row.get('gender'),
-        "quantity": row.get('quantity'),
         "mrp": row.get('mrp'),
         "mfg_date": row.get('manufacture_month_year') or row.get('mfg date'),
         "manufacturer": row.get('manufactured_by') or row.get('manufacturer'),
@@ -55,22 +48,30 @@ def normalize_data(row):
 
 
 # =========================
-# CSV UPLOAD
+# CSV UPLOAD (FIXED FOR RENDER)
 # =========================
 @app.route('/upload_csv', methods=['POST'])
 def upload_csv():
+
     file = request.files.get('csv_file')
 
     if not file or file.filename == '':
         return render_template('index.html', error='Upload CSV file')
 
+    temp_path = os.path.join(tempfile.gettempdir(), "temp.csv")
+
     try:
-        # Safe CSV reading
+        # ✅ Save file temporarily
+        file.save(temp_path)
+
+        # ✅ Safe CSV read (encoding fallback)
         try:
-            df = pd.read_csv(file, encoding='utf-8')
+            df = pd.read_csv(temp_path, encoding='utf-8')
         except:
-            file.seek(0)
-            df = pd.read_csv(file, encoding='latin1')
+            df = pd.read_csv(temp_path, encoding='latin1')
+
+        if df.empty:
+            return render_template('index.html', error='CSV file is empty')
 
         df.columns = df.columns.str.strip().str.lower()
 
@@ -78,6 +79,7 @@ def upload_csv():
         errors = []
 
         for idx, row in df.iterrows():
+
             raw_data = {k: str(v).strip() for k, v in row.items() if pd.notna(v)}
             data = normalize_data(raw_data)
 
@@ -87,13 +89,8 @@ def upload_csv():
                 errors.append(f'Row {idx+2}: Missing SKU')
                 continue
 
-            quantity = extract_quantity(data.get('quantity'))
-            data['quantity'] = quantity
-
             safe_sku = re.sub(r'[^A-Za-z0-9_-]', '_', sku)
-            unique_id = uuid.uuid4().hex
-
-            filename = f'barcode_{safe_sku}_{unique_id}.png'
+            filename = f'barcode_{safe_sku}_{idx}.png'
             filepath = os.path.join(STATIC_FOLDER, filename)
 
             try:
@@ -108,7 +105,6 @@ def upload_csv():
                 'barcode_path': filename,
                 'barcode_value': sku,
                 'numeric_sku': numeric_only(sku),
-                'quantity': quantity,
                 'row_number': idx + 2
             })
 
@@ -118,9 +114,7 @@ def upload_csv():
         # =========================
         # ZIP FILE
         # =========================
-        zip_filename = f'barcodes_{uuid.uuid4().hex}.zip'
-        zip_path = os.path.join(STATIC_FOLDER, zip_filename)
-
+        zip_path = os.path.join(STATIC_FOLDER, 'barcodes.zip')
         with zipfile.ZipFile(zip_path, 'w') as zipf:
             for r in results:
                 full = os.path.join(STATIC_FOLDER, r['barcode_path'])
@@ -128,10 +122,9 @@ def upload_csv():
                     zipf.write(full, r['barcode_path'])
 
         # =========================
-        # PDF FILE
+        # PDF
         # =========================
-        pdf_filename = f'labels_{uuid.uuid4().hex}.pdf'
-        pdf_path = os.path.join(STATIC_FOLDER, pdf_filename)
+        pdf_path = os.path.join(STATIC_FOLDER, 'labels_12_per_page.pdf')
 
         c = canvas.Canvas(pdf_path, pagesize=A4)
         width, height = A4
@@ -143,6 +136,7 @@ def upload_csv():
         label_height = height / rows
 
         for item in results:
+
             barcode_path = os.path.join(STATIC_FOLDER, item['barcode_path'])
 
             if not os.path.exists(barcode_path):
@@ -151,13 +145,13 @@ def upload_csv():
             data = item['data']
 
             for i in range(12):
+
                 col = i % cols
                 row = i // cols
 
                 x = col * label_width
                 y = height - ((row + 1) * label_height)
 
-                # Border
                 c.rect(x + 5, y + 5, label_width - 10, label_height - 10)
 
                 text_x = x + 10
@@ -175,20 +169,18 @@ def upload_csv():
                 draw("Product", data.get('product'))
                 draw("SKU", data.get('sku'))
                 draw("Size", data.get('size'))
-                draw("Gender", data.get('gender'))
-                draw("Qty", data.get('quantity'))
                 draw("MRP", data.get('mrp'))
                 draw("Mfg", data.get('mfg_date'))
                 draw("Manufacturer", data.get('manufacturer'))
                 draw("Customer Care", data.get('customer_care'))
 
-                # Barcode image
+                # ✅ Bigger barcode
                 c.drawImage(
                     barcode_path,
                     x + 10,
                     y + 10,
                     width=label_width - 20,
-                    height=35
+                    height=60
                 )
 
             c.showPage()
@@ -199,12 +191,17 @@ def upload_csv():
             'index.html',
             bulk_results=results,
             row_errors=errors,
-            pdf_path=url_for('static', filename=pdf_filename),
-            zip_path=url_for('static', filename=zip_filename)
+            pdf_path=url_for('static', filename='labels_12_per_page.pdf'),
+            zip_path=url_for('static', filename='barcodes.zip')
         )
 
     except Exception as e:
         return render_template('index.html', error=str(e))
+
+    finally:
+        # ✅ Cleanup temp file
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
 
 
 # =========================
@@ -212,6 +209,7 @@ def upload_csv():
 # =========================
 @app.route('/generate', methods=['POST'])
 def generate():
+
     data = request.form.to_dict()
     data = normalize_data(data)
 
@@ -220,13 +218,8 @@ def generate():
     if not sku:
         return render_template('index.html', error='Enter SKU')
 
-    quantity = extract_quantity(data.get('quantity'))
-    data['quantity'] = quantity
-
     safe_sku = re.sub(r'[^A-Za-z0-9_-]', '_', sku)
-    unique_id = uuid.uuid4().hex
-
-    filename = f'barcode_{safe_sku}_{unique_id}.png'
+    filename = f'barcode_{safe_sku}.png'
     filepath = os.path.join(STATIC_FOLDER, filename)
 
     code = barcode.get('code128', sku, writer=ImageWriter())
@@ -238,12 +231,9 @@ def generate():
         barcode_value=sku,
         numeric_sku=numeric_only(sku),
         data=data,
-        copies=quantity
+        copies=1
     )
 
 
-# =========================
-# MAIN
-# =========================
 if __name__ == '__main__':
     app.run(debug=True)
