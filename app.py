@@ -5,10 +5,15 @@ import os
 import re
 import pandas as pd
 import zipfile
-import tempfile
 
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import A4
+from reportlab.lib.units import mm
+
+# ✅ ENCODING FIX FOR RENDER
+import sys
+import io
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 STATIC_FOLDER = os.path.join(BASE_DIR, 'static')
@@ -48,30 +53,33 @@ def normalize_data(row):
 
 
 # =========================
-# CSV UPLOAD (FIXED FOR RENDER)
+# CSV UPLOAD
 # =========================
 @app.route('/upload_csv', methods=['POST'])
 def upload_csv():
 
     file = request.files.get('csv_file')
 
+    # GAP INPUTS
+    try:
+        top_gap = float(request.form.get('top_gap')) * mm if request.form.get('top_gap') else 10 * mm
+    except:
+        top_gap = 10 * mm
+
+    try:
+        bottom_gap = float(request.form.get('bottom_gap')) * mm if request.form.get('bottom_gap') else 10 * mm
+    except:
+        bottom_gap = 10 * mm
+
     if not file or file.filename == '':
         return render_template('index.html', error='Upload CSV file')
 
-    temp_path = os.path.join(tempfile.gettempdir(), "temp.csv")
-
     try:
-        # ✅ Save file temporarily
-        file.save(temp_path)
-
-        # ✅ Safe CSV read (encoding fallback)
+        # ✅ SAFE CSV READ (works on all pandas versions)
         try:
-            df = pd.read_csv(temp_path, encoding='utf-8')
+            df = pd.read_csv(file, encoding='utf-8-sig')
         except:
-            df = pd.read_csv(temp_path, encoding='latin1')
-
-        if df.empty:
-            return render_template('index.html', error='CSV file is empty')
+            df = pd.read_csv(file, encoding='latin1')
 
         df.columns = df.columns.str.strip().str.lower()
 
@@ -132,8 +140,14 @@ def upload_csv():
         cols = 2
         rows = 6
 
-        label_width = width / cols
-        label_height = height / rows
+        vertical_gap = 7 * mm
+        side_margin = 5 * mm
+
+        usable_height = height - top_gap - bottom_gap - (vertical_gap * (rows - 1))
+        usable_width = width - (side_margin * 2)
+
+        label_width = usable_width / cols
+        label_height = usable_height / rows
 
         for item in results:
 
@@ -149,8 +163,8 @@ def upload_csv():
                 col = i % cols
                 row = i // cols
 
-                x = col * label_width
-                y = height - ((row + 1) * label_height)
+                x = side_margin + col * label_width
+                y = height - top_gap - (row + 1) * label_height - row * vertical_gap
 
                 c.rect(x + 5, y + 5, label_width - 10, label_height - 10)
 
@@ -174,7 +188,6 @@ def upload_csv():
                 draw("Manufacturer", data.get('manufacturer'))
                 draw("Customer Care", data.get('customer_care'))
 
-                # ✅ Bigger barcode
                 c.drawImage(
                     barcode_path,
                     x + 10,
@@ -197,11 +210,6 @@ def upload_csv():
 
     except Exception as e:
         return render_template('index.html', error=str(e))
-
-    finally:
-        # ✅ Cleanup temp file
-        if os.path.exists(temp_path):
-            os.remove(temp_path)
 
 
 # =========================
