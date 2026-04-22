@@ -31,7 +31,6 @@ input {
     width:100%;
 }
 
-/* BUTTON BASE */
 button {
     padding:12px;
     border:none;
@@ -40,7 +39,6 @@ button {
     color:white;
 }
 
-/* BUTTON COLORS */
 .pdf-btn { background:#dc2626; }
 .zip-btn { background:#2563eb; }
 .print-btn { background:#6b8e23; }
@@ -110,9 +108,7 @@ body * { visibility:hidden; }
 <input type="text" name="sku" placeholder="SKU" required>
 <input type="text" name="size" placeholder="Size">
 <input type="text" name="mrp" placeholder="MRP">
-<input type="text" name="manufacture_month_year" placeholder="Mfg Date">
 <input type="text" name="manufactured_by" placeholder="Manufacturer">
-<input type="text" name="customer_care" placeholder="Customer Care">
 </div>
 
 <button type="submit" class="generate-btn">Generate</button>
@@ -123,7 +119,6 @@ body * { visibility:hidden; }
 <!-- CSV -->
 <form method="POST" action="/upload_csv" enctype="multipart/form-data">
 
-<!-- ✅ NEW GAP INPUTS -->
 <div class="grid">
 <input type="text" name="top_gap" placeholder="Top Gap (mm)">
 <input type="text" name="bottom_gap" placeholder="Bottom Gap (mm)">
@@ -149,10 +144,7 @@ body * { visibility:hidden; }
         <p>Size: {{ item.data.size }}</p>
 
         <p>MRP: {{ item.data.mrp }}</p>
-        <p>Mfg: {{ item.data.mfg_date }}</p>
-
         <p>Manufacturer: {{ item.data.manufacturer }}</p>
-        <p>Customer Care: {{ item.data.customer_care }}</p>
     </div>
 
     <div class="barcode-box">
@@ -191,10 +183,7 @@ body * { visibility:hidden; }
     <div>Size: {{ item.data.size }}</div>
 
     <div>MRP: {{ item.data.mrp }}</div>
-    <div>Mfg: {{ item.data.mfg_date }}</div>
-
     <div>Manufacturer: {{ item.data.manufacturer }}</div>
-    <div>Customer Care: {{ item.data.customer_care }}</div>
 
     <img src="{{ url_for('static', filename=item.barcode_path) }}">
     <div>{{ item.numeric_sku }}</div>
@@ -218,10 +207,7 @@ body * { visibility:hidden; }
         <p>Size: {{ data.size }}</p>
 
         <p>MRP: {{ data.mrp }}</p>
-        <p>Mfg: {{ data.mfg_date }}</p>
-
         <p>Manufacturer: {{ data.manufacturer }}</p>
-        <p>Customer Care: {{ data.customer_care }}</p>
     </div>
 
     <div class="barcode-box">
@@ -243,10 +229,7 @@ body * { visibility:hidden; }
     <div>Size: {{ data.size }}</div>
 
     <div>MRP: {{ data.mrp }}</div>
-    <div>Mfg: {{ data.mfg_date }}</div>
-
     <div>Manufacturer: {{ data.manufacturer }}</div>
-    <div>Customer Care: {{ data.customer_care }}</div>
 
     <img src="{{ barcode_path }}">
     <div>{{ numeric_sku }}</div>
